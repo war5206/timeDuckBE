@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fastapi = "*"
+python-multipart = "*"
+uvicorn = "*"
+pymupdf = "*"
+python-docx = "*"
+sqlalchemy = "*"
+pymysql = "*"
+dashscope = "*"
+cryptography = "*"
+
+[dev-packages]
+uvicorn = "*"
+
+[requires]
+python_version = "3.9.19"
+python_full_version = "3.9.19"
