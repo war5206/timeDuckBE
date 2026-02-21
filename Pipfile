@@ -9,10 +9,10 @@ python-multipart = "*"
 uvicorn = "*"
 pymupdf = "*"
 python-docx = "*"
-sqlalchemy = "*"
 pymysql = "*"
-dashscope = "*"
 cryptography = "*"
+dashscope = "*"
+sqlalchemy = "*"
 
 [dev-packages]
 uvicorn = "*"

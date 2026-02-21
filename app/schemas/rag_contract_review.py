@@ -1,3 +1,5 @@
+from typing import Dict, List, Optional, Union
+
 from pydantic import BaseModel
 
 class RagContractReviewRequest(BaseModel):
@@ -6,4 +8,4 @@ class RagContractReviewRequest(BaseModel):
 
 class RagContractReviewResponse(BaseModel):
     type: str
-    delta: str | dict[str, str] | list[dict[str, str]] | None = None
+    delta: Optional[Union[str, Dict[str, str], List[Dict[str, str]]]] = None

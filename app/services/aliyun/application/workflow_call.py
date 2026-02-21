@@ -1,10 +1,11 @@
 from http import HTTPStatus
 from dashscope import Application
 
+WORKFLOW_API_KEY = "sk-f9a250c074e4438bbae0c57c68bbb9cc"
+WORKFLOW_APP_ID = "5f07c18b55564c3ea00f96f1ccc2f2a4"
+
 # 工作流/智能体编排应用调用（非流式）
 def workflow_application_call(
-  api_key: str,
-  app_id: str,
   prompt: str,
   user_todo: str,
   time_stamp: str,
@@ -21,8 +22,8 @@ def workflow_application_call(
       }
 
       response = Application.call(
-          api_key=api_key,
-          app_id=app_id,
+          api_key=WORKFLOW_API_KEY,
+          app_id=WORKFLOW_APP_ID,
           prompt=prompt,
           biz_params=biz_params,
       )

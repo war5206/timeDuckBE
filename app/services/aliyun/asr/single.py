@@ -1,78 +1,140 @@
+import json
 import time
-import threading
-import sys
+from threading import Event
+from typing import Any
 
-import nls
-
-
-URL="wss://nls-gateway-cn-shanghai.aliyuncs.com/ws/v1"
-TOKEN="affb5e3b00474a958e2b91823faff2a9"   #参考https://help.aliyun.com/document_detail/450255.html获取token
-APPKEY="fXEyNgauqxyyp0ts"      #获取Appkey请前往控制台：https://nls-portal.console.aliyun.com/applist
-
-#以下代码会根据音频文件内容反复进行一句话识别
-class TestSr:
-    def __init__(self, tid, test_file):
-        self.__th = threading.Thread(target=self.__test_run)
-        self.__id = tid
-        self.__test_file = test_file
-   
-    def loadfile(self, filename):
-        with open(filename, "rb") as f:
-            self.__data = f.read()
-    
-    def start(self):
-        self.loadfile(self.__test_file)
-        self.__th.start()
-
-    def test_on_start(self, message, *args):
-        print("test_on_start:{}".format(message))
-
-    def test_on_error(self, message, *args):
-        print("on_error args=>{}".format(args))
-
-    def test_on_close(self, *args):
-        print("on_close: args=>{}".format(args))
-
-    def test_on_result_chg(self, message, *args):
-        print("test_on_chg:{}".format(message))
-
-    def test_on_completed(self, message, *args):
-        print("on_completed:args=>{} message=>{}".format(args, message))
+try:
+    import nls
+except ImportError:  # pragma: no cover - runtime dependency
+    nls = None
 
 
-    def __test_run(self):
-        print("thread:{} start..".format(self.__id))
-        
-        sr = nls.NlsSpeechRecognizer(
-                    url=URL,
-                    token=TOKEN,
-                    appkey=APPKEY,
-                    on_start=self.test_on_start,
-                    on_result_changed=self.test_on_result_chg,
-                    on_completed=self.test_on_completed,
-                    on_error=self.test_on_error,
-                    on_close=self.test_on_close,
-                    callback_args=[self.__id]
-                )
+DEFAULT_ASR_URL = "wss://nls-gateway-cn-shanghai.aliyuncs.com/ws/v1"
+TOKEN = "affb5e3b00474a958e2b91823faff2a9"   # 参考文档获取token
+APPKEY = "fXEyNgauqxyyp0ts"   # 控制台获取Appkey
 
-        print("{}: session start".format(self.__id))
-        r = sr.start(aformat="pcm", ex={"hello":123})
-            
-        self.__slices = zip(*(iter(self.__data),) * 640)
-        for i in self.__slices:
-            sr.send_audio(bytes(i))
-            time.sleep(0.01)
+def _try_parse_json(data: Any) -> Any:
+    if isinstance(data, str):
+        try:
+            return json.loads(data)
+        except json.JSONDecodeError:
+            return data
+    return data
 
-        r = sr.stop()
-        print("{}: sr stopped:{}".format(self.__id, r))
-        time.sleep(1)
 
-# def multiruntest(num=500):
-#     for i in range(0, num):
-#         name = "thread" + str(i)
-#         t = TestSr(name, "tests/test1.pcm")
-#         t.start()
+def _extract_text(message: Any) -> str:
+    parsed = _try_parse_json(message)
 
-# # 设置打开日志输出
-# nls.enableTrace(False)
-# multiruntest(1)
+    if isinstance(parsed, str):
+        return parsed
+    if not isinstance(parsed, dict):
+        return ""
+
+    payload = parsed.get("payload")
+    if isinstance(payload, dict):
+        result = payload.get("result")
+        result = _try_parse_json(result)
+        if isinstance(result, dict):
+            for key in ("text", "result", "sentence"):
+                value = result.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value
+        elif isinstance(result, str) and result.strip():
+            return result
+
+    for key in ("text", "result", "sentence"):
+        value = parsed.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+
+    return ""
+
+
+class _SingleRecognizer:
+    def __init__(self, url: str, token: str, appkey: str):
+        if nls is None:
+            raise RuntimeError("缺少nls依赖，请先按阿里云文档安装Python SDK")
+        self._text = ""
+        self._error = ""
+        self._done = Event()
+        self._recognizer = nls.NlsSpeechRecognizer(
+            url=url,
+            token=token,
+            appkey=appkey,
+            on_start=self._on_start,
+            on_result_changed=self._on_result_changed,
+            on_completed=self._on_completed,
+            on_error=self._on_error,
+            on_close=self._on_close,
+            callback_args=[],
+        )
+
+    def _on_start(self, message, *args):
+        return None
+
+    def _on_result_changed(self, message, *args):
+        text = _extract_text(message)
+        if text:
+            self._text = text
+
+    def _on_completed(self, message, *args):
+        text = _extract_text(message)
+        if text:
+            self._text = text
+        self._done.set()
+
+    def _on_error(self, message, *args):
+        self._error = _extract_text(message) or str(message)
+        self._done.set()
+
+    def _on_close(self, *args):
+        return None
+
+    def run(
+        self,
+        audio_bytes: bytes,
+        audio_format: str,
+        sample_rate: int,
+        chunk_size: int = 640,
+        send_interval_seconds: float = 0.01,
+        timeout_seconds: float = 30.0,
+    ) -> str:
+        if not audio_bytes:
+            raise ValueError("audio_bytes is empty")
+
+        start_ret = self._recognizer.start(
+            aformat=audio_format,
+            sample_rate=sample_rate,
+            enable_intermediate_result=True,
+            enable_punctuation_prediction=True,
+            enable_inverse_text_normalization=True,
+        )
+        if not start_ret:
+            raise RuntimeError("ASR session start failed")
+
+        for offset in range(0, len(audio_bytes), chunk_size):
+            self._recognizer.send_audio(audio_bytes[offset : offset + chunk_size])
+            time.sleep(send_interval_seconds)
+
+        self._recognizer.stop()
+        self._done.wait(timeout=timeout_seconds)
+
+        if self._error:
+            raise RuntimeError(f"ASR error: {self._error}")
+        if not self._text.strip():
+            raise RuntimeError("ASR did not return recognized text")
+        return self._text.strip()
+
+
+def single_recognize(
+    audio_bytes: bytes,
+    url: str = DEFAULT_ASR_URL,
+    audio_format: str = "pcm",
+    sample_rate: int = 16000,
+) -> str:
+    recognizer = _SingleRecognizer(url=url, token=TOKEN, appkey=APPKEY)
+    return recognizer.run(
+        audio_bytes=audio_bytes,
+        audio_format=audio_format,
+        sample_rate=sample_rate,
+    )
