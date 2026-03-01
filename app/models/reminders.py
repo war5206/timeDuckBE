@@ -1,6 +1,5 @@
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, String
-from app.models.base import Base
-
+from app.database import Base
 
 class Reminders(Base):
     __tablename__ = "reminders"

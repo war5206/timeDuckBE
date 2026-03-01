@@ -3,15 +3,13 @@ import time
 from threading import Event
 from typing import Any
 
+from app.config import require_env
+
 try:
     import nls
 except ImportError:  # pragma: no cover - runtime dependency
     nls = None
 
-
-DEFAULT_ASR_URL = "wss://nls-gateway-cn-shanghai.aliyuncs.com/ws/v1"
-TOKEN = "affb5e3b00474a958e2b91823faff2a9"   # 参考文档获取token
-APPKEY = "fXEyNgauqxyyp0ts"   # 控制台获取Appkey
 
 def _try_parse_json(data: Any) -> Any:
     if isinstance(data, str):
@@ -128,11 +126,14 @@ class _SingleRecognizer:
 
 def single_recognize(
     audio_bytes: bytes,
-    url: str = DEFAULT_ASR_URL,
+    url: str = "",
     audio_format: str = "pcm",
     sample_rate: int = 16000,
 ) -> str:
-    recognizer = _SingleRecognizer(url=url, token=TOKEN, appkey=APPKEY)
+    asr_url = url or require_env("DEFAULT_ASR_URL")
+    token = require_env("TOKEN")
+    appkey = require_env("APPKEY")
+    recognizer = _SingleRecognizer(url=asr_url, token=token, appkey=appkey)
     return recognizer.run(
         audio_bytes=audio_bytes,
         audio_format=audio_format,

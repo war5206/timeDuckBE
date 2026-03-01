@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models.reminders import Reminders
-from app.schemas import ReminderUpdate
+from app.schemas.crud.reminder import ReminderUpdate
 
 
 def create_reminder(

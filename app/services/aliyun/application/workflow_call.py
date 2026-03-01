@@ -1,8 +1,6 @@
 from http import HTTPStatus
 from dashscope import Application
-
-WORKFLOW_API_KEY = "sk-f9a250c074e4438bbae0c57c68bbb9cc"
-WORKFLOW_APP_ID = "5f07c18b55564c3ea00f96f1ccc2f2a4"
+from app.config import require_env
 
 # 工作流/智能体编排应用调用（非流式）
 def workflow_application_call(
@@ -14,6 +12,9 @@ def workflow_application_call(
   debug: bool = False
 ):
   try:
+      workflow_api_key = require_env("WORKFLOW_API_KEY")
+      workflow_app_id = require_env("WORKFLOW_APP_ID")
+
       biz_params = {
           "user_todo": user_todo,
           "time_stamp": time_stamp,
@@ -22,8 +23,8 @@ def workflow_application_call(
       }
 
       response = Application.call(
-          api_key=WORKFLOW_API_KEY,
-          app_id=WORKFLOW_APP_ID,
+          api_key=workflow_api_key,
+          app_id=workflow_app_id,
           prompt=prompt,
           biz_params=biz_params,
       )

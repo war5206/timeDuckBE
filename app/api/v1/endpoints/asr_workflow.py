@@ -8,7 +8,7 @@ from app.database import get_db
 from app.schemas.asr_workflow import AsrWorkflowResponse
 from app.services.aliyun.application.workflow_call import workflow_application_call
 from app.services.aliyun.asr.single import single_recognize
-from app.services import reminder as reminder_service
+from app.services.crud import reminder as reminder_service
 
 router = APIRouter(prefix="/asr", tags=["ASR工作流接口"])
 
