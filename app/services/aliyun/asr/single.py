@@ -100,15 +100,17 @@ class _SingleRecognizer:
         if not audio_bytes:
             raise ValueError("audio_bytes is empty")
 
-        start_ret = self._recognizer.start(
-            aformat=audio_format,
-            sample_rate=sample_rate,
-            enable_intermediate_result=True,
-            enable_punctuation_prediction=True,
-            enable_inverse_text_normalization=True,
-        )
-        if not start_ret:
-            raise RuntimeError("ASR session start failed")
+        try:
+            # nls SDK start() succeeds with no return value; failures raise exceptions.
+            self._recognizer.start(
+                aformat=audio_format,
+                sample_rate=sample_rate,
+                enable_intermediate_result=True,
+                enable_punctuation_prediction=True,
+                enable_inverse_text_normalization=True,
+            )
+        except Exception as exc:
+            raise RuntimeError(f"ASR session start failed: {exc}") from exc
 
         for offset in range(0, len(audio_bytes), chunk_size):
             self._recognizer.send_audio(audio_bytes[offset : offset + chunk_size])
