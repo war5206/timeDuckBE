@@ -1,5 +1,32 @@
 # Pipenv
 
+## 语音转文字联调（本项目）
+
+1. 启动服务：
+
+```bash
+pipenv run uvicorn main:app --reload
+```
+
+2. 运行端到端语音测试（自动生成语音并上传）：
+
+```bash
+python scripts/test_voice_to_asr.py --mode transcribe
+```
+
+3. 如果要测试现有“ASR + workflow”合并链路：
+
+```bash
+python scripts/test_voice_to_asr.py --mode workflow
+```
+
+接口说明：
+- `POST /api/v1/asr/transcribe`：只返回 `asr_text`
+- `POST /api/v1/asr/workflow`：返回 `asr_text + workflow(+可选reminder)`
+
+依赖提醒：
+- ASR 运行依赖阿里云 `nls` SDK；若返回“缺少nls依赖”，请先在当前运行环境安装该 SDK（按阿里云文档）。
+
 **Pipenv** 是 Python 的依赖管理和虚拟环境工具，它将 `pip` 和 `virtualenv` 的功能整合在一起，并引入了类似 npm 的依赖锁机制（`Pipfile.lock`）。以下是详细说明和 FastAPI 的安装示例：
 
 ------

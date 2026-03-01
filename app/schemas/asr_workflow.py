@@ -9,3 +9,7 @@ class AsrWorkflowResponse(BaseModel):
     asr_text: str
     workflow: dict[str, Any]
     reminder: Optional[ReminderOut] = None
+
+
+class AsrTranscribeResponse(BaseModel):
+    asr_text: str
