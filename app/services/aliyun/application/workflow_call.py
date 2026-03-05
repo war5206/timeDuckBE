@@ -18,7 +18,8 @@ def workflow_application_call(
         )
 
         response = client.chat.completions.create(
-            model="qwen3.5-plus",
+            # model="qwen3.5-plus",
+            model="qwen3-max",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
         )
