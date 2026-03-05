@@ -13,6 +13,7 @@ pymysql = "*"
 cryptography = "*"
 dashscope = "*"
 sqlalchemy = "*"
+openai = "*"
 
 [dev-packages]
 uvicorn = "*"

@@ -1,4 +1,5 @@
-from datetime import datetime
+import json
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -14,6 +15,25 @@ router = APIRouter(prefix="/asr", tags=["ASR工作流接口"])
 
 SUPPORTED_AUDIO_FORMATS = {"pcm", "wav", "mp3", "opus", "opu", "speex", "aac", "amr"}
 SUPPORTED_SAMPLE_RATES = {8000, 16000}
+UTC_PLUS_8 = timezone(timedelta(hours=8))
+
+
+def _build_workflow_prompt(asr_text: str, current_time: str) -> str:
+    input_payload = json.dumps(
+        {"current_time": current_time, "todo_task": asr_text},
+        ensure_ascii=False,
+    )
+    return f"""请帮助我设定闹铃
+
+规则：
+1. 随机设定的时间尽量放在早上7点到晚上7点之间，尽量放在工作时间
+2. 时区 UTC+8
+
+输入 json格式：
+{input_payload}
+
+回复格式json：
+{{"task":"事项","time":"yy-mm-dd HH:MM:SS", "repeat": "是否需要重复 布尔值"}}"""
 
 
 def _parse_datetime_or_none(value: str) -> Optional[datetime]:
@@ -125,8 +145,8 @@ async def asr_then_workflow(
     format: str = Form(default="", description="音频格式（兼容字段：format）"),
     sample_rate: Optional[int] = Form(default=None, description="采样率（兼容字段：sample_rate）"),
     sampleRate: Optional[int] = Form(default=None, description="采样率（兼容字段：sampleRate）"),
-    prompt: str = Form(default="", description="工作流 prompt，默认使用识别文本"),
-    user_todo: str = Form(default="", description="biz_params.user_todo，默认使用识别文本"),
+    prompt: str = Form(default="", description="附加prompt，会拼接在默认模板之后"),
+    user_todo: str = Form(default="", description="兼容字段，默认使用识别文本"),
     time_stamp: str = Form(default=""),
     date: str = Form(default=""),
     week: str = Form(default=""),
@@ -157,14 +177,14 @@ async def asr_then_workflow(
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"ASR调用失败: {exc}") from exc
 
-    workflow_prompt = prompt or asr_text
-    workflow_user_todo = user_todo or asr_text
+    asr_todo = user_todo or asr_text
+    current_time = datetime.now(UTC_PLUS_8).strftime("%Y-%m-%d %H:%M:%S")
+    workflow_prompt = _build_workflow_prompt(asr_text=asr_todo, current_time=current_time)
+    if prompt.strip():
+        workflow_prompt = f"{workflow_prompt}\n\n附加要求：\n{prompt.strip()}"
+
     workflow_result = workflow_application_call(
         prompt=workflow_prompt,
-        user_todo=workflow_user_todo,
-        time_stamp=time_stamp,
-        date=date,
-        week=week,
         debug=debug,
     )
 
@@ -175,7 +195,7 @@ async def asr_then_workflow(
         reminder = reminder_service.create_reminder(
             db=db,
             user_id=user_id,
-            remind_text=remind_text or workflow_user_todo or asr_text,
+            remind_text=remind_text or asr_todo or asr_text,
             remind_time=_parse_timestamp_or_none(time_stamp),
             date=_parse_datetime_or_none(date),
             week=week or None,
